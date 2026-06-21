@@ -6,7 +6,6 @@ const firebaseConfig = {
   storageBucket: "sahwataljeal.firebasestorage.app",
   messagingSenderId: "587826377850",
   appId: "1:587826377850:web:088242a20224318d23f7c3"
-  measurementId: "G-K4H4EWV795"
 };
 
 export default firebaseConfig;
