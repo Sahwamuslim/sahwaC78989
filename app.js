@@ -23,49 +23,59 @@ import {
   runTransaction
 } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 
+console.log('🚀 تطبيق صحوة يبدأ التشغيل...');
+
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// تعريف عناصر DOM
-const dom = {
-  authView: document.getElementById('authView'),
-  appView: document.getElementById('appView'),
-  loginTab: document.getElementById('loginTab'),
-  registerTab: document.getElementById('registerTab'),
-  loginForm: document.getElementById('loginForm'),
-  registerForm: document.getElementById('registerForm'),
-  loginEmail: document.getElementById('loginEmail'),
-  loginPassword: document.getElementById('loginPassword'),
-  registerNickname: document.getElementById('registerNickname'),
-  registerEmail: document.getElementById('registerEmail'),
-  registerPassword: document.getElementById('registerPassword'),
-  postForm: document.getElementById('postForm'),
-  postTitle: document.getElementById('postTitle'),
-  postContent: document.getElementById('postContent'),
-  feed: document.getElementById('feed'),
-  postsCount: document.getElementById('postsCount'),
-  commentsCount: document.getElementById('commentsCount'),
-  welcomeTitle: document.getElementById('welcomeTitle'),
-  welcomeText: document.getElementById('welcomeText'),
-  logoutBtn: document.getElementById('logoutBtn'),
-  refreshBtn: document.getElementById('refreshBtn'),
-  themeToggle: document.getElementById('themeToggle'),
-  toast: document.getElementById('toast'),
-  fabBtn: document.getElementById('fabBtn'),
-  postModal: document.getElementById('postModal'),
-  closeModalBtn: document.getElementById('closeModalBtn')
+// دالة مساعدة للحصول على عناصر DOM مع تحذير
+const $ = (id) => {
+  const el = document.getElementById(id);
+  if (!el) console.warn(`⚠️ العنصر "${id}" غير موجود في DOM`);
+  return el;
 };
 
-console.log('✅ DOM Elements loaded:', {
-  authView: !!dom.authView,
-  appView: !!dom.appView,
-  loginForm: !!dom.loginForm,
-  registerForm: !!dom.registerForm,
-  fabBtn: !!dom.fabBtn,
-  postModal: !!dom.postModal
-});
+// جمع كل العناصر
+const dom = {
+  authView: $('authView'),
+  appView: $('appView'),
+  loginTab: $('loginTab'),
+  registerTab: $('registerTab'),
+  loginForm: $('loginForm'),
+  registerForm: $('registerForm'),
+  loginEmail: $('loginEmail'),
+  loginPassword: $('loginPassword'),
+  registerNickname: $('registerNickname'),
+  registerEmail: $('registerEmail'),
+  registerPassword: $('registerPassword'),
+  postForm: $('postForm'),
+  postTitle: $('postTitle'),
+  postContent: $('postContent'),
+  feed: $('feed'),
+  postsCount: $('postsCount'),
+  commentsCount: $('commentsCount'),
+  welcomeTitle: $('welcomeTitle'),
+  welcomeText: $('welcomeText'),
+  logoutBtn: $('logoutBtn'),
+  refreshBtn: $('refreshBtn'),
+  themeToggle: $('themeToggle'),
+  toast: $('toast'),
+  fabBtn: $('fabBtn'),
+  postModal: $('postModal'),
+  closeModalBtn: $('closeModalBtn')
+};
 
+// التحقق من العناصر الحرجة
+const criticalMissing = !dom.loginForm || !dom.registerForm || !dom.authView || !dom.appView;
+if (criticalMissing) {
+  console.error('❌ عناصر DOM أساسية مفقودة! تأكد من وجودها في index.html');
+} else {
+  console.log('✅ جميع عناصر DOM موجودة');
+}
+
+// حالة التطبيق
 const state = {
   user: null,
   profile: null,
@@ -76,15 +86,14 @@ const state = {
   postsUnsubscribe: null
 };
 
-// تهيئة الثيم
+// ----- الثيم -----
 document.documentElement.setAttribute('data-theme', state.theme);
 updateThemeButton();
 
 function updateThemeButton() {
+  if (!dom.themeToggle) return;
   const isDark = state.theme === 'dark';
-  if (dom.themeToggle) {
-    dom.themeToggle.setAttribute('aria-label', isDark ? 'التبديل إلى الوضع الفاتح' : 'التبديل إلى الوضع الداكن');
-  }
+  dom.themeToggle.setAttribute('aria-label', isDark ? 'التبديل إلى الوضع الفاتح' : 'التبديل إلى الوضع الداكن');
 }
 
 function setTheme(theme) {
@@ -98,6 +107,7 @@ function toggleTheme() {
   setTheme(state.theme === 'dark' ? 'light' : 'dark');
 }
 
+// ----- دوال مساعدة -----
 function escapeHtml(value = '') {
   return String(value)
     .replaceAll('&', '&amp;')
@@ -145,7 +155,7 @@ async function loadProfile(uid) {
     const snap = await getDoc(doc(db, 'users', uid));
     state.profile = snap.exists() ? snap.data() : null;
   } catch (error) {
-    console.error('Error loading profile:', error);
+    console.error('خطأ في تحميل الملف الشخصي:', error);
     state.profile = null;
   }
 }
@@ -172,9 +182,10 @@ function updateSummary() {
   if (dom.welcomeText) dom.welcomeText.textContent = 'يمكنك الآن كتابة منشور جديد أو التفاعل مع منشورات الآخرين.';
 }
 
+// ----- المودال -----
 function openModal() {
   if (!dom.postModal) return;
-  console.log('📝 Opening modal');
+  console.log('📝 فتح المودال');
   dom.postModal.classList.remove('hidden');
   setTimeout(() => {
     if (dom.postTitle) dom.postTitle.focus();
@@ -183,19 +194,66 @@ function openModal() {
 
 function closeModal() {
   if (!dom.postModal) return;
-  console.log('📝 Closing modal');
+  console.log('📝 إغلاق المودال');
   dom.postModal.classList.add('hidden');
   if (dom.postForm) dom.postForm.reset();
 }
 
-// إغلاق المودال عند الضغط خارج المحتوى
 function handleModalClick(event) {
   if (event.target === dom.postModal) {
     closeModal();
   }
 }
 
-// دالة إنشاء بطاقة المنشور
+// ----- دوال التفاعل مع Firebase -----
+async function toggleLike(postId) {
+  const user = auth.currentUser;
+  if (!user) throw new Error('غير مسجل دخول');
+
+  const postRef = doc(db, 'posts', postId);
+  const likeRef = doc(db, 'posts', postId, 'likes', user.uid);
+
+  await runTransaction(db, async (transaction) => {
+    const likeSnap = await transaction.get(likeRef);
+    if (likeSnap.exists()) {
+      transaction.delete(likeRef);
+    } else {
+      transaction.set(likeRef, {
+        userId: user.uid,
+        createdAt: serverTimestamp()
+      });
+    }
+  });
+}
+
+async function addComment(postId, text) {
+  const user = auth.currentUser;
+  if (!user) throw new Error('غير مسجل دخول');
+
+  await addDoc(collection(db, 'posts', postId, 'comments'), {
+    authorId: user.uid,
+    authorName: state.profile?.nickname || user.displayName || 'مستخدم',
+    text,
+    createdAt: serverTimestamp()
+  });
+  showToast('تمت إضافة التعليق.');
+}
+
+async function createPost(title, content) {
+  const user = auth.currentUser;
+  if (!user) throw new Error('غير مسجل دخول');
+
+  await addDoc(collection(db, 'posts'), {
+    authorId: user.uid,
+    authorName: state.profile?.nickname || user.displayName || 'مستخدم',
+    title,
+    content,
+    createdAt: serverTimestamp()
+  });
+  showToast('تم نشر المنشور.');
+}
+
+// ----- إنشاء بطاقة المنشور -----
 function createPostCard(post) {
   const article = document.createElement('article');
   article.className = 'post-card';
@@ -247,7 +305,7 @@ function createPostCard(post) {
   // الإعجاب
   const likeBtn = article.querySelector('.like-btn');
   const likeCount = article.querySelector('.like-count');
-  
+
   likeBtn.addEventListener('click', async () => {
     if (!state.user) {
       showToast('يجب تسجيل الدخول أولاً', 'error');
@@ -328,51 +386,25 @@ function createPostCard(post) {
   return article;
 }
 
-async function toggleLike(postId) {
-  const user = auth.currentUser;
-  if (!user) throw new Error('not-authenticated');
+// ----- عرض المنشورات -----
+async function renderPosts(posts) {
+  clearListeners();
+  if (!dom.feed) return;
 
-  const postRef = doc(db, 'posts', postId);
-  const likeRef = doc(db, 'posts', postId, 'likes', user.uid);
+  dom.feed.innerHTML = '';
+  if (!posts.length) {
+    dom.feed.innerHTML = `
+      <article class="post-card">
+        <div class="comment-empty">لا توجد منشورات بعد. كن أول من ينشر شيئاً.</div>
+      </article>
+    `;
+    return;
+  }
 
-  await runTransaction(db, async (transaction) => {
-    const likeSnap = await transaction.get(likeRef);
-    if (likeSnap.exists()) {
-      transaction.delete(likeRef);
-    } else {
-      transaction.set(likeRef, {
-        userId: user.uid,
-        createdAt: serverTimestamp()
-      });
-    }
+  posts.forEach((post) => {
+    const card = createPostCard(post);
+    dom.feed.appendChild(card);
   });
-}
-
-async function addComment(postId, text) {
-  const user = auth.currentUser;
-  if (!user) throw new Error('not-authenticated');
-
-  await addDoc(collection(db, 'posts', postId, 'comments'), {
-    authorId: user.uid,
-    authorName: state.profile?.nickname || user.displayName || 'مستخدم',
-    text,
-    createdAt: serverTimestamp()
-  });
-  showToast('تمت إضافة التعليق.');
-}
-
-async function createPost(title, content) {
-  const user = auth.currentUser;
-  if (!user) throw new Error('not-authenticated');
-
-  await addDoc(collection(db, 'posts'), {
-    authorId: user.uid,
-    authorName: state.profile?.nickname || user.displayName || 'مستخدم',
-    title,
-    content,
-    createdAt: serverTimestamp()
-  });
-  showToast('تم نشر المنشور.');
 }
 
 function observePosts() {
@@ -396,52 +428,38 @@ function observePosts() {
     updateSummary();
     await renderPosts(posts);
   }, (error) => {
-    console.error('Error loading posts:', error);
+    console.error('خطأ في تحميل المنشورات:', error);
     showToast('تعذر تحميل المنشورات.', 'error');
   });
 }
 
-async function renderPosts(posts) {
-  clearListeners();
-  if (!dom.feed) return;
-  
-  dom.feed.innerHTML = '';
-  if (!posts.length) {
-    dom.feed.innerHTML = `
-      <article class="post-card">
-        <div class="comment-empty">لا توجد منشورات بعد. كن أول من ينشر شيئاً.</div>
-      </article>
-    `;
-    return;
-  }
-
-  posts.forEach((post) => {
-    const card = createPostCard(post);
-    dom.feed.appendChild(card);
-  });
-}
-
 // ============= ربط الأحداث =============
+console.log('🔄 جاري ربط الأحداث...');
 
 // تبديل الثيم
 if (dom.themeToggle) {
   dom.themeToggle.addEventListener('click', toggleTheme);
+  console.log('✅ تم ربط زر الثيم');
 }
 
 // تبديل تبويبات الدخول
 if (dom.loginTab) {
   dom.loginTab.addEventListener('click', () => switchAuthTab('login'));
+  console.log('✅ تم ربط تبويب تسجيل الدخول');
 }
 if (dom.registerTab) {
   dom.registerTab.addEventListener('click', () => switchAuthTab('register'));
+  console.log('✅ تم ربط تبويب إنشاء حساب');
 }
 
 // فتح وإغلاق المودال
 if (dom.fabBtn) {
   dom.fabBtn.addEventListener('click', openModal);
+  console.log('✅ تم ربط زر النشر العائم');
 }
 if (dom.closeModalBtn) {
   dom.closeModalBtn.addEventListener('click', closeModal);
+  console.log('✅ تم ربط زر إغلاق المودال');
 }
 if (dom.postModal) {
   dom.postModal.addEventListener('click', handleModalClick);
@@ -463,6 +481,7 @@ if (dom.loginForm) {
       setLoading(false);
     }
   });
+  console.log('✅ تم ربط نموذج تسجيل الدخول');
 }
 
 // إنشاء حساب
@@ -493,6 +512,7 @@ if (dom.registerForm) {
       setLoading(false);
     }
   });
+  console.log('✅ تم ربط نموذج إنشاء الحساب');
 }
 
 // إنشاء منشور
@@ -519,6 +539,7 @@ if (dom.postForm) {
       setLoading(false);
     }
   });
+  console.log('✅ تم ربط نموذج إنشاء المنشور');
 }
 
 // تسجيل الخروج
@@ -532,6 +553,7 @@ if (dom.logoutBtn) {
       showToast('تعذر تسجيل الخروج.', 'error');
     }
   });
+  console.log('✅ تم ربط زر الخروج');
 }
 
 // تحديث المنشورات
@@ -540,13 +562,14 @@ if (dom.refreshBtn) {
     observePosts();
     showToast('تم تحديث المنشورات.');
   });
+  console.log('✅ تم ربط زر التحديث');
 }
 
 // ============= مراقبة حالة المصادقة =============
 onAuthStateChanged(auth, async (user) => {
-  console.log('🔐 Auth state changed:', user ? 'Logged in' : 'Logged out');
+  console.log('🔐 تغيرت حالة المصادقة:', user ? 'مسجل دخول' : 'غير مسجل');
   state.user = user || null;
-  
+
   if (state.postsUnsubscribe) {
     state.postsUnsubscribe();
     state.postsUnsubscribe = null;
@@ -576,4 +599,4 @@ onAuthStateChanged(auth, async (user) => {
 // التهيئة الأولية
 switchAuthTab('login');
 setVisibleView(false);
-console.log('✅ App initialized successfully');
+console.log('✅ تم تهيئة التطبيق بنجاح');
