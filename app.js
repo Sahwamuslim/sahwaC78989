@@ -51,7 +51,10 @@ const dom = {
   logoutBtn: document.getElementById('logoutBtn'),
   refreshBtn: document.getElementById('refreshBtn'),
   themeToggle: document.getElementById('themeToggle'),
-  toast: document.getElementById('toast')
+  toast: document.getElementById('toast'),
+  fabBtn: document.getElementById('fabBtn'),
+  postModal: document.getElementById('postModal'),
+  closeModalBtn: document.getElementById('closeModalBtn')
 };
 
 const state = {
@@ -148,6 +151,16 @@ function updateSummary() {
   const nickname = state.profile?.nickname || state.user?.displayName || 'صديقنا';
   dom.welcomeTitle.textContent = `أهلاً، ${nickname}`;
   dom.welcomeText.textContent = 'يمكنك الآن كتابة منشور جديد أو التفاعل مع منشورات الآخرين.';
+}
+
+function openModal() {
+  dom.postModal.classList.remove('hidden');
+  dom.postTitle.focus();
+}
+
+function closeModal() {
+  dom.postModal.classList.add('hidden');
+  dom.postForm.reset();
 }
 
 function createPostCard(post) {
@@ -253,229 +266,4 @@ function createPostCard(post) {
     commentsList.innerHTML = '';
     if (snapshot.empty) {
       commentsList.innerHTML = '<div class="comment-empty">لا توجد تعليقات بعد.</div>';
-    } else {
-      snapshot.forEach((commentDoc) => {
-        const comment = commentDoc.data();
-        const item = document.createElement('div');
-        item.className = 'comment-item';
-        item.innerHTML = `
-          <div class="comment-author">${escapeHtml(comment.authorName || 'مستخدم')}</div>
-          <div class="comment-text">${escapeHtml(comment.text || '')}</div>
-          <div class="comment-meta">${timeLabel(comment.createdAt)}</div>
-        `;
-        commentsList.appendChild(item);
-      });
     }
-    state.posts = state.posts.map((item) => item.id === post.id ? { ...item, commentCount: snapshot.size } : item);
-    updateSummary();
-  });
-
-  state.listeners.set(`likes-${post.id}`, likesUnsub);
-  state.listeners.set(`comments-${post.id}`, commentsUnsub);
-  return article;
-}
-
-async function toggleLike(postId) {
-  const user = auth.currentUser;
-  if (!user) throw new Error('not-authenticated');
-
-  const postRef = doc(db, 'posts', postId);
-  const likeRef = doc(db, 'posts', postId, 'likes', user.uid);
-
-  await runTransaction(db, async (transaction) => {
-    const likeSnap = await transaction.get(likeRef);
-    if (likeSnap.exists()) {
-      transaction.delete(likeRef);
-    } else {
-      transaction.set(likeRef, {
-        userId: user.uid,
-        createdAt: serverTimestamp()
-      });
-    }
-  });
-}
-
-async function addComment(postId, text) {
-  const user = auth.currentUser;
-  if (!user) throw new Error('not-authenticated');
-
-  await addDoc(collection(db, 'posts', postId, 'comments'), {
-    authorId: user.uid,
-    authorName: state.profile?.nickname || user.displayName || 'مستخدم',
-    text,
-    createdAt: serverTimestamp()
-  });
-  toast('تمت إضافة التعليق.');
-}
-
-async function createPost(title, content) {
-  const user = auth.currentUser;
-  if (!user) throw new Error('not-authenticated');
-
-  await addDoc(collection(db, 'posts'), {
-    authorId: user.uid,
-    authorName: state.profile?.nickname || user.displayName || 'مستخدم',
-    title,
-    content,
-    createdAt: serverTimestamp()
-  });
-  toast('تم نشر المنشور.');
-}
-
-async function removeCurrentListenersAndRender(posts) {
-  clearListeners();
-  dom.feed.innerHTML = '';
-
-  if (!posts.length) {
-    dom.feed.innerHTML = `
-      <article class="post-card">
-        <div class="comment-empty">لا توجد منشورات بعد. كن أول من ينشر شيئاً.</div>
-      </article>
-    `;
-    return;
-  }
-
-  posts.forEach((post) => {
-    const card = createPostCard(post);
-    dom.feed.appendChild(card);
-  });
-}
-
-function observePosts() {
-  const postsQuery = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
-  return onSnapshot(postsQuery, async (snapshot) => {
-    const posts = snapshot.docs.map((postDoc) => {
-      const data = postDoc.data();
-      return {
-        id: postDoc.id,
-        ...data,
-        commentCount: 0
-      };
-    });
-
-    state.posts = posts;
-    updateSummary();
-    await removeCurrentListenersAndRender(posts);
-  }, (error) => {
-    console.error(error);
-    toast('تعذر تحميل المنشورات.', 'error');
-  });
-}
-
-let stopPostsObserver = null;
-
-dom.loginTab.addEventListener('click', () => switchAuthTab('login'));
-dom.registerTab.addEventListener('click', () => switchAuthTab('register'));
-dom.themeToggle.addEventListener('click', toggleTheme);
-dom.refreshBtn.addEventListener('click', () => {
-  if (typeof stopPostsObserver === 'function') {
-    stopPostsObserver();
-    stopPostsObserver = observePosts();
-    toast('تم تحديث المنشورات.');
-  }
-});
-
-dom.loginForm.addEventListener('submit', async (event) => {
-  event.preventDefault();
-  setLoading(true);
-  try {
-    await signInWithEmailAndPassword(auth, dom.loginEmail.value.trim(), dom.loginPassword.value);
-    dom.loginForm.reset();
-    toast('تم تسجيل الدخول.');
-  } catch (error) {
-    console.error(error);
-    toast('فشل تسجيل الدخول. تحقق من البيانات.', 'error');
-  } finally {
-    setLoading(false);
-  }
-});
-
-dom.registerForm.addEventListener('submit', async (event) => {
-  event.preventDefault();
-  const nickname = dom.registerNickname.value.trim();
-  const email = dom.registerEmail.value.trim();
-  const password = dom.registerPassword.value;
-  setLoading(true);
-
-  try {
-    const credential = await createUserWithEmailAndPassword(auth, email, password);
-    await updateProfile(credential.user, { displayName: nickname });
-    await setDoc(doc(db, 'users', credential.user.uid), {
-      nickname,
-      email,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    }, { merge: true });
-
-    dom.registerForm.reset();
-    toast('تم إنشاء الحساب.');
-  } catch (error) {
-    console.error(error);
-    toast('تعذر إنشاء الحساب. تأكد من البيانات.', 'error');
-  } finally {
-    setLoading(false);
-  }
-});
-
-dom.postForm.addEventListener('submit', async (event) => {
-  event.preventDefault();
-  const title = dom.postTitle.value.trim();
-  const content = dom.postContent.value.trim();
-
-  if (!title || !content) {
-    toast('الرجاء كتابة عنوان ومحتوى.', 'error');
-    return;
-  }
-
-  setLoading(true);
-  try {
-    await createPost(title, content);
-    dom.postForm.reset();
-  } catch (error) {
-    console.error(error);
-    toast('تعذر نشر المنشور.', 'error');
-  } finally {
-    setLoading(false);
-  }
-});
-
-dom.logoutBtn.addEventListener('click', async () => {
-  try {
-    await signOut(auth);
-    toast('تم تسجيل الخروج.');
-  } catch (error) {
-    console.error(error);
-    toast('تعذر تسجيل الخروج.', 'error');
-  }
-});
-
-onAuthStateChanged(auth, async (user) => {
-  state.user = user || null;
-  if (stopPostsObserver) {
-    stopPostsObserver();
-    stopPostsObserver = null;
-  }
-  clearListeners();
-
-  if (!user) {
-    state.profile = null;
-    state.posts = [];
-    dom.feed.innerHTML = '';
-    updateSummary();
-    setVisibleView(false);
-    return;
-  }
-
-  try {
-    await loadProfile(user.uid);
-    setVisibleView(true);
-    stopPostsObserver = observePosts();
-    updateSummary();
-  } catch (error) {
-    console.error(error);
-    toast('تعذر تحميل ملفك الشخصي.', 'error');
-  }
-});
-
-switchAuthTab('login');
-setVisibleView(false);
