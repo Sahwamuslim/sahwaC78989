@@ -15,7 +15,6 @@ import {
   setDoc,
   getDoc,
   addDoc,
-  updateDoc,
   deleteDoc,
   serverTimestamp,
   query,
@@ -28,6 +27,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
+// تأكد من وجود جميع العناصر
 const dom = {
   authView: document.getElementById('authView'),
   appView: document.getElementById('appView'),
@@ -56,6 +56,13 @@ const dom = {
   postModal: document.getElementById('postModal'),
   closeModalBtn: document.getElementById('closeModalBtn')
 };
+
+// التحقق من وجود العناصر الأساسية
+console.log('DOM Elements:', {
+  fabBtn: dom.fabBtn,
+  postModal: dom.postModal,
+  closeModalBtn: dom.closeModalBtn
+});
 
 const state = {
   user: null,
@@ -154,11 +161,16 @@ function updateSummary() {
 }
 
 function openModal() {
+  console.log('Opening modal');
   dom.postModal.classList.remove('hidden');
-  dom.postTitle.focus();
+  // تأخير بسيط لضمان ظهور المودال قبل التركيز
+  setTimeout(() => {
+    dom.postTitle.focus();
+  }, 100);
 }
 
 function closeModal() {
+  console.log('Closing modal');
   dom.postModal.classList.add('hidden');
   dom.postForm.reset();
 }
@@ -261,9 +273,4 @@ function createPostCard(post) {
     likeBtn.appendChild(countSpan);
   });
 
-  const commentsUnsub = onSnapshot(query(commentsRef, orderBy('createdAt', 'asc')), (snapshot) => {
-    commentCount.textContent = String(snapshot.size);
-    commentsList.innerHTML = '';
-    if (snapshot.empty) {
-      commentsList.innerHTML = '<div class="comment-empty">لا توجد تعليقات بعد.</div>';
-    }
+  const
