@@ -168,13 +168,13 @@ html[data-theme="dark"] .icon-moon { display: none; }
 .fab-btn {
   position: fixed;
   bottom: 28px;
-  left: 28px;
+  right: 28px;
   width: 64px;
   height: 64px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--primary), var(--primary-strong));
   color: var(--primary-contrast);
-  font-size: 2.2rem;
+  font-size: 2.4rem;
   font-weight: 300;
   box-shadow: 0 12px 40px rgba(53, 92, 255, 0.35);
   transition: transform 0.25s ease, box-shadow 0.25s ease;
@@ -183,6 +183,7 @@ html[data-theme="dark"] .icon-moon { display: none; }
   align-items: center;
   justify-content: center;
   line-height: 1;
+  border: none;
 }
 
 .fab-btn:hover {
@@ -311,7 +312,6 @@ html[data-theme="dark"] .icon-moon { display: none; }
 
 .auth-card,
 .hero-card,
-.composer,
 .feed-head,
 .post-card {
   border-radius: var(--radius);
@@ -439,6 +439,11 @@ textarea {
 
 .feed-head {
   padding: 22px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(18px);
+  box-shadow: var(--shadow);
+  border-radius: var(--radius);
 }
 
 .feed-head h3 {
@@ -461,11 +466,6 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  backdrop-filter: blur(18px);
-  box-shadow: var(--shadow);
-  border-radius: var(--radius);
 }
 
 .feed {
@@ -480,6 +480,7 @@ textarea {
   backdrop-filter: blur(18px);
   box-shadow: var(--shadow);
   overflow: hidden;
+  border-radius: var(--radius);
 }
 
 .post-top {
@@ -646,7 +647,7 @@ html[data-theme="light"] .toast {
 
   .fab-btn {
     bottom: 20px;
-    left: 20px;
+    right: 20px;
     width: 56px;
     height: 56px;
     font-size: 1.8rem;
@@ -657,17 +658,16 @@ html[data-theme="light"] .toast {
   .app-shell { width: min(100% - 14px, 1180px); padding-top: 12px; }
   .topbar { align-items: flex-start; }
   .brand-subtitle { display: none; }
-  .auth-card, .hero-card, .composer, .feed-head, .post-card { padding: 16px; }
+  .auth-card, .hero-card, .feed-head, .post-card { padding: 16px; }
   .tabs { grid-template-columns: 1fr; }
   .comment-form .row { flex-direction: column; }
   .comment-form button, .action-btn { width: 100%; }
   .modal-content { padding: 20px 16px; }
   .fab-btn {
     bottom: 16px;
-    left: 16px;
+    right: 16px;
     width: 50px;
     height: 50px;
     font-size: 1.6rem;
   }
 }
-
