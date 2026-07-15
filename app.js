@@ -1,3 +1,4 @@
+
 import firebaseConfig from './firebase.js';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js';
 import {
@@ -22,13 +23,20 @@ import {
   onSnapshot,
   runTransaction
 } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
+import {
+  getStorage,
+  ref,
+  uploadBytes,
+  getDownloadURL,
+  deleteObject
+} from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js';
 
 console.log('🚀 تطبيق صحوة يبدأ التشغيل...');
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app);
 
 // دالة مساعدة للحصول على عناصر DOM مع تحذير
 const $ = (id) => {
@@ -37,7 +45,6 @@ const $ = (id) => {
   return el;
 };
 
-// جمع كل العناصر
 const dom = {
   authView: $('authView'),
   appView: $('appView'),
@@ -53,6 +60,10 @@ const dom = {
   postForm: $('postForm'),
   postTitle: $('postTitle'),
   postContent: $('postContent'),
+  postImage: $('postImage'),
+  imagePreviewContainer: $('imagePreviewContainer'),
+  imagePreview: $('imagePreview'),
+  removeImageBtn: $('removeImageBtn'),
   feed: $('feed'),
   postsCount: $('postsCount'),
   commentsCount: $('commentsCount'),
@@ -67,15 +78,9 @@ const dom = {
   closeModalBtn: $('closeModalBtn')
 };
 
-// التحقق من العناصر الحرجة
-const criticalMissing = !dom.loginForm || !dom.registerForm || !dom.authView || !dom.appView;
-if (criticalMissing) {
-  console.error('❌ عناصر DOM أساسية مفقودة! تأكد من وجودها في index.html');
-} else {
-  console.log('✅ جميع عناصر DOM موجودة');
-}
+// متغير لتخزين ملف الصورة المختار
+let selectedImageFile = null;
 
-// حالة التطبيق
 const state = {
   user: null,
   profile: null,
@@ -86,7 +91,6 @@ const state = {
   postsUnsubscribe: null
 };
 
-// ----- الثيم -----
 document.documentElement.setAttribute('data-theme', state.theme);
 updateThemeButton();
 
@@ -107,7 +111,6 @@ function toggleTheme() {
   setTheme(state.theme === 'dark' ? 'light' : 'dark');
 }
 
-// ----- دوال مساعدة -----
 function escapeHtml(value = '') {
   return String(value)
     .replaceAll('&', '&amp;')
@@ -187,6 +190,10 @@ function openModal() {
   if (!dom.postModal) return;
   console.log('📝 فتح المودال');
   dom.postModal.classList.remove('hidden');
+  // إعادة تعيين حقول النموذج وإزالة الصورة المختارة
+  dom.postForm.reset();
+  clearImagePreview();
+  selectedImageFile = null;
   setTimeout(() => {
     if (dom.postTitle) dom.postTitle.focus();
   }, 100);
@@ -196,13 +203,59 @@ function closeModal() {
   if (!dom.postModal) return;
   console.log('📝 إغلاق المودال');
   dom.postModal.classList.add('hidden');
-  if (dom.postForm) dom.postForm.reset();
+  dom.postForm.reset();
+  clearImagePreview();
+  selectedImageFile = null;
 }
 
 function handleModalClick(event) {
   if (event.target === dom.postModal) {
     closeModal();
   }
+}
+
+// ----- معاينة الصورة -----
+function handleImageSelection() {
+  const file = dom.postImage.files[0];
+  if (!file) {
+    clearImagePreview();
+    selectedImageFile = null;
+    return;
+  }
+
+  // التحقق من نوع الملف
+  if (!file.type.startsWith('image/')) {
+    showToast('الرجاء اختيار ملف صورة صالح.', 'error');
+    dom.postImage.value = '';
+    clearImagePreview();
+    selectedImageFile = null;
+    return;
+  }
+
+  // التحقق من الحجم (مثلاً 5 ميجابايت)
+  if (file.size > 5 * 1024 * 1024) {
+    showToast('حجم الصورة كبير جداً (الحد الأقصى 5 ميجابايت).', 'error');
+    dom.postImage.value = '';
+    clearImagePreview();
+    selectedImageFile = null;
+    return;
+  }
+
+  selectedImageFile = file;
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    dom.imagePreview.src = e.target.result;
+    dom.imagePreviewContainer.classList.remove('hidden');
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearImagePreview() {
+  dom.imagePreview.src = '#';
+  dom.imagePreviewContainer.classList.add('hidden');
+  dom.postImage.value = '';
+  selectedImageFile = null;
 }
 
 // ----- دوال التفاعل مع Firebase -----
@@ -239,15 +292,30 @@ async function addComment(postId, text) {
   showToast('تمت إضافة التعليق.');
 }
 
-async function createPost(title, content) {
+async function createPost(title, content, imageFile) {
   const user = auth.currentUser;
   if (!user) throw new Error('غير مسجل دخول');
+
+  let imageUrl = null;
+  let imagePath = null;
+
+  if (imageFile) {
+    // رفع الصورة إلى Firebase Storage
+    const timestamp = Date.now();
+    const fileName = `posts/${user.uid}/${timestamp}_${imageFile.name}`;
+    const storageRef = ref(storage, fileName);
+    await uploadBytes(storageRef, imageFile);
+    imageUrl = await getDownloadURL(storageRef);
+    imagePath = fileName;
+  }
 
   await addDoc(collection(db, 'posts'), {
     authorId: user.uid,
     authorName: state.profile?.nickname || user.displayName || 'مستخدم',
     title,
     content,
+    imageUrl,
+    imagePath,
     createdAt: serverTimestamp()
   });
   showToast('تم نشر المنشور.');
@@ -259,6 +327,15 @@ function createPostCard(post) {
   article.className = 'post-card';
   article.dataset.postId = post.id;
 
+  let imageHtml = '';
+  if (post.imageUrl) {
+    imageHtml = `
+      <div class="post-image" data-image-url="${escapeHtml(post.imageUrl)}">
+        <img src="${escapeHtml(post.imageUrl)}" alt="صورة المنشور" loading="lazy" />
+      </div>
+    `;
+  }
+
   article.innerHTML = `
     <div class="post-top">
       <div>
@@ -269,6 +346,8 @@ function createPostCard(post) {
     </div>
 
     <p class="post-content">${escapeHtml(post.content)}</p>
+
+    ${imageHtml}
 
     <div class="post-actions">
       <button class="action-btn primary-like like-btn" type="button">إعجاب <span class="like-count">0</span></button>
@@ -293,6 +372,11 @@ function createPostCard(post) {
     deleteBtn.classList.remove('hidden');
     deleteBtn.addEventListener('click', async () => {
       try {
+        // حذف الصورة من التخزين إذا وجدت
+        if (post.imagePath) {
+          const imageRef = ref(storage, post.imagePath);
+          await deleteObject(imageRef).catch(() => {});
+        }
         await deleteDoc(doc(db, 'posts', post.id));
         showToast('تم حذف المنشور.');
       } catch (error) {
@@ -344,6 +428,17 @@ function createPostCard(post) {
     }
   });
 
+  // تكبير الصورة عند النقر عليها
+  const postImageDiv = article.querySelector('.post-image');
+  if (postImageDiv) {
+    postImageDiv.addEventListener('click', () => {
+      const imgUrl = postImageDiv.dataset.imageUrl;
+      if (imgUrl) {
+        showImageModal(imgUrl);
+      }
+    });
+  }
+
   // استماع التحديثات
   const likesRef = collection(db, 'posts', post.id, 'likes');
   const commentsRef = collection(db, 'posts', post.id, 'comments');
@@ -384,6 +479,25 @@ function createPostCard(post) {
   state.listeners.set(`likes-${post.id}`, likesUnsub);
   state.listeners.set(`comments-${post.id}`, commentsUnsub);
   return article;
+}
+
+// ----- عرض الصورة مكبرة -----
+function showImageModal(imageUrl) {
+  // إنشاء عنصر المودال مؤقتاً
+  const modal = document.createElement('div');
+  modal.className = 'image-modal';
+  modal.innerHTML = `<img src="${escapeHtml(imageUrl)}" alt="صورة مكبرة" />`;
+  document.body.appendChild(modal);
+  modal.addEventListener('click', () => {
+    modal.remove();
+  });
+  // إغلاق بالضغط على Escape
+  document.addEventListener('keydown', function handler(e) {
+    if (e.key === 'Escape') {
+      modal.remove();
+      document.removeEventListener('keydown', handler);
+    }
+  });
 }
 
 // ----- عرض المنشورات -----
@@ -436,13 +550,10 @@ function observePosts() {
 // ============= ربط الأحداث =============
 console.log('🔄 جاري ربط الأحداث...');
 
-// تبديل الثيم
 if (dom.themeToggle) {
   dom.themeToggle.addEventListener('click', toggleTheme);
   console.log('✅ تم ربط زر الثيم');
 }
-
-// تبديل تبويبات الدخول
 if (dom.loginTab) {
   dom.loginTab.addEventListener('click', () => switchAuthTab('login'));
   console.log('✅ تم ربط تبويب تسجيل الدخول');
@@ -452,7 +563,6 @@ if (dom.registerTab) {
   console.log('✅ تم ربط تبويب إنشاء حساب');
 }
 
-// فتح وإغلاق المودال
 if (dom.fabBtn) {
   dom.fabBtn.addEventListener('click', openModal);
   console.log('✅ تم ربط زر النشر العائم');
@@ -463,6 +573,16 @@ if (dom.closeModalBtn) {
 }
 if (dom.postModal) {
   dom.postModal.addEventListener('click', handleModalClick);
+}
+
+// معاينة الصورة
+if (dom.postImage) {
+  dom.postImage.addEventListener('change', handleImageSelection);
+  console.log('✅ تم ربط حدث اختيار الصورة');
+}
+if (dom.removeImageBtn) {
+  dom.removeImageBtn.addEventListener('click', clearImagePreview);
+  console.log('✅ تم ربط زر إزالة الصورة');
 }
 
 // تسجيل الدخول
@@ -529,8 +649,10 @@ if (dom.postForm) {
 
     setLoading(true);
     try {
-      await createPost(title, content);
+      await createPost(title, content, selectedImageFile);
       dom.postForm.reset();
+      clearImagePreview();
+      selectedImageFile = null;
       closeModal();
     } catch (error) {
       console.error(error);
