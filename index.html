@@ -17,7 +17,7 @@
         <div class="brand-mark">ص</div>
         <div>
           <div class="brand-title">صحوة</div>
-          <div class="brand-subtitle">منصة منشورات عربية خفيفة وسريعة</div>
+       
         </div>
       </div>
 
@@ -35,7 +35,7 @@
         <div class="panel-copy">
           <span class="pill">دخول سريع</span>
           <h1>سجّل دخولك وابدأ النشر</h1>
-          <p>الحساب يعتمد على اسم مستعار فقط داخل الواجهة.</p>
+        
         </div>
 
         <div class="auth-card glass">
@@ -79,7 +79,7 @@
           <div>
             <span class="pill">الواجهة الرئيسية</span>
             <h2 id="welcomeTitle">أهلاً بك</h2>
-            <p id="welcomeText">يمكنك الآن كتابة منشور جديد أو التفاعل مع منشورات الآخرين.</p>
+            <p id="welcomeText">.</p>
           </div>
           <div class="stats">
             <div class="stat">
@@ -114,6 +114,16 @@
                 <span>المحتوى</span>
                 <textarea id="postContent" rows="5" placeholder="اكتب المنشور هنا..." maxlength="4000" required></textarea>
               </label>
+              <!-- حقل رفع الصورة -->
+              <label>
+                <span>صورة (اختيارية)</span>
+                <input id="postImage" type="file" accept="image/*" />
+              </label>
+              <!-- معاينة الصورة قبل الرفع -->
+              <div id="imagePreviewContainer" class="image-preview-container hidden">
+                <img id="imagePreview" src="#" alt="معاينة الصورة" />
+                <button id="removeImageBtn" type="button" class="remove-image-btn">✕</button>
+              </div>
               <button class="primary-btn" type="submit">نشر</button>
             </form>
           </div>
