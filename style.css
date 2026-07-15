@@ -1,3 +1,4 @@
+
 :root {
   --bg: #f5f7fb;
   --bg-2: #e9eef8;
@@ -256,6 +257,91 @@ html[data-theme="dark"] .icon-moon { display: none; }
   font-size: 1.2rem;
   display: grid;
   place-items: center;
+}
+
+/* معاينة الصورة في المودال */
+.image-preview-container {
+  position: relative;
+  margin-top: 8px;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  max-width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.image-preview-container img {
+  max-width: 100%;
+  max-height: 200px;
+  object-fit: contain;
+  display: block;
+}
+
+.remove-image-btn {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  border: none;
+  font-size: 1.2rem;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.remove-image-btn:hover {
+  background: rgba(0,0,0,0.8);
+}
+
+/* صورة المنشور في البطاقة */
+.post-image {
+  margin-top: 14px;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+.post-image img {
+  width: 100%;
+  max-height: 400px;
+  object-fit: cover;
+  display: block;
+}
+.post-image:hover {
+  transform: scale(1.01);
+}
+
+/* مودال عرض الصورة مكبرة */
+.image-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  backdrop-filter: blur(8px);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  cursor: pointer;
+}
+.image-modal img {
+  max-width: 90%;
+  max-height: 90%;
+  object-fit: contain;
+  border-radius: 12px;
+  box-shadow: 0 32px 80px rgba(0,0,0,0.6);
+}
+.image-modal.hidden {
+  display: none !important;
 }
 
 .panel {
@@ -669,5 +755,12 @@ html[data-theme="light"] .toast {
     width: 50px;
     height: 50px;
     font-size: 1.6rem;
+  }
+  .post-image img {
+    max-height: 250px;
+  }
+  .image-modal img {
+    max-width: 95%;
+    max-height: 80%;
   }
 }
