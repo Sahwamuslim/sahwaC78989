@@ -1,4 +1,3 @@
-
 import firebaseConfig from './firebase.js';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js';
 import {
@@ -190,7 +189,7 @@ function openModal() {
   if (!dom.postModal) return;
   console.log('📝 فتح المودال');
   dom.postModal.classList.remove('hidden');
-  // إعادة تعيين حقول النموذج وإزالة الصورة المختارة
+  // إعادة تعيين النموذج وإزالة الصورة المختارة
   dom.postForm.reset();
   clearImagePreview();
   selectedImageFile = null;
@@ -232,8 +231,9 @@ function handleImageSelection() {
     return;
   }
 
-  // التحقق من الحجم (مثلاً 5 ميجابايت)
-  if (file.size > 5 * 1024 * 1024) {
+  // التحقق من الحجم (5 ميجابايت كحد أقصى)
+  const maxSize = 5 * 1024 * 1024;
+  if (file.size > maxSize) {
     showToast('حجم الصورة كبير جداً (الحد الأقصى 5 ميجابايت).', 'error');
     dom.postImage.value = '';
     clearImagePreview();
@@ -247,6 +247,11 @@ function handleImageSelection() {
   reader.onload = (e) => {
     dom.imagePreview.src = e.target.result;
     dom.imagePreviewContainer.classList.remove('hidden');
+  };
+  reader.onerror = () => {
+    showToast('حدث خطأ أثناء قراءة الصورة.', 'error');
+    clearImagePreview();
+    selectedImageFile = null;
   };
   reader.readAsDataURL(file);
 }
@@ -300,13 +305,17 @@ async function createPost(title, content, imageFile) {
   let imagePath = null;
 
   if (imageFile) {
-    // رفع الصورة إلى Firebase Storage
-    const timestamp = Date.now();
-    const fileName = `posts/${user.uid}/${timestamp}_${imageFile.name}`;
-    const storageRef = ref(storage, fileName);
-    await uploadBytes(storageRef, imageFile);
-    imageUrl = await getDownloadURL(storageRef);
-    imagePath = fileName;
+    try {
+      const timestamp = Date.now();
+      const fileName = `posts/${user.uid}/${timestamp}_${imageFile.name}`;
+      const storageRef = ref(storage, fileName);
+      await uploadBytes(storageRef, imageFile);
+      imageUrl = await getDownloadURL(storageRef);
+      imagePath = fileName;
+    } catch (error) {
+      console.error('خطأ في رفع الصورة:', error);
+      showToast('فشل رفع الصورة، سيتم نشر المنشور بدونها.', 'error');
+    }
   }
 
   await addDoc(collection(db, 'posts'), {
@@ -319,6 +328,32 @@ async function createPost(title, content, imageFile) {
     createdAt: serverTimestamp()
   });
   showToast('تم نشر المنشور.');
+}
+
+// ----- عرض الصورة مكبرة -----
+function showImageModal(imageUrl) {
+  // إزالة أي مودال سابق
+  const existing = document.querySelector('.image-modal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.className = 'image-modal';
+  modal.innerHTML = `<img src="${escapeHtml(imageUrl)}" alt="صورة مكبرة" />`;
+  document.body.appendChild(modal);
+
+  const closeModalImage = () => {
+    modal.remove();
+    document.removeEventListener('keydown', keyHandler);
+  };
+
+  const keyHandler = (e) => {
+    if (e.key === 'Escape') {
+      closeModalImage();
+    }
+  };
+
+  modal.addEventListener('click', closeModalImage);
+  document.addEventListener('keydown', keyHandler);
 }
 
 // ----- إنشاء بطاقة المنشور -----
@@ -372,10 +407,13 @@ function createPostCard(post) {
     deleteBtn.classList.remove('hidden');
     deleteBtn.addEventListener('click', async () => {
       try {
-        // حذف الصورة من التخزين إذا وجدت
         if (post.imagePath) {
-          const imageRef = ref(storage, post.imagePath);
-          await deleteObject(imageRef).catch(() => {});
+          try {
+            const imageRef = ref(storage, post.imagePath);
+            await deleteObject(imageRef);
+          } catch (e) {
+            console.warn('لم يتم حذف الصورة (ربما غير موجودة):', e);
+          }
         }
         await deleteDoc(doc(db, 'posts', post.id));
         showToast('تم حذف المنشور.');
@@ -481,25 +519,6 @@ function createPostCard(post) {
   return article;
 }
 
-// ----- عرض الصورة مكبرة -----
-function showImageModal(imageUrl) {
-  // إنشاء عنصر المودال مؤقتاً
-  const modal = document.createElement('div');
-  modal.className = 'image-modal';
-  modal.innerHTML = `<img src="${escapeHtml(imageUrl)}" alt="صورة مكبرة" />`;
-  document.body.appendChild(modal);
-  modal.addEventListener('click', () => {
-    modal.remove();
-  });
-  // إغلاق بالضغط على Escape
-  document.addEventListener('keydown', function handler(e) {
-    if (e.key === 'Escape') {
-      modal.remove();
-      document.removeEventListener('keydown', handler);
-    }
-  });
-}
-
 // ----- عرض المنشورات -----
 async function renderPosts(posts) {
   clearListeners();
@@ -575,7 +594,6 @@ if (dom.postModal) {
   dom.postModal.addEventListener('click', handleModalClick);
 }
 
-// معاينة الصورة
 if (dom.postImage) {
   dom.postImage.addEventListener('change', handleImageSelection);
   console.log('✅ تم ربط حدث اختيار الصورة');
